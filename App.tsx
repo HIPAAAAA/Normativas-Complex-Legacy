@@ -18,9 +18,10 @@ interface CardProps {
   gradientTo: string;
   onClick: () => void;
   isIcon?: boolean; 
+  variant?: 'default' | 'round';
 }
 
-const PerspectiveCard: React.FC<CardProps> = ({ title, description, image, gradientFrom, gradientTo, onClick, isIcon = false }) => {
+const PerspectiveCard: React.FC<CardProps> = ({ title, description, image, gradientFrom, gradientTo, onClick, isIcon = false, variant = 'default' }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -45,7 +46,7 @@ const PerspectiveCard: React.FC<CardProps> = ({ title, description, image, gradi
 
   return (
     <div 
-      className="relative h-80 w-full cursor-pointer perspective-1000"
+      className="relative h-96 w-full cursor-pointer perspective-1000"
       onClick={onClick}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -59,18 +60,17 @@ const PerspectiveCard: React.FC<CardProps> = ({ title, description, image, gradi
         
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10" style={{ transform: 'translateZ(20px)' }}>
           <div className="relative mb-6">
-            {/* Removed the background circle div to prevent square shadow effects on irregular icons */}
             <img 
               src={image} 
               alt={title} 
-              className={`object-contain relative z-10 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_10px_20px_rgba(140,120,255,0.4)] group-hover:drop-shadow-[0_10px_30px_rgba(140,120,255,0.6)] ${isIcon ? 'w-32 h-32' : 'w-24 h-24'}`} 
+              className={`object-contain relative z-10 transition-transform duration-300 group-hover:scale-110 drop-shadow-[0_10px_20px_rgba(140,120,255,0.4)] group-hover:drop-shadow-[0_10px_30px_rgba(140,120,255,0.6)] ${isIcon ? 'w-32 h-32' : 'w-24 h-24'} ${variant === 'round' ? 'rounded-full' : ''}`} 
             />
           </div>
           
           <h3 className="text-2xl font-display font-black italic text-white mb-2 tracking-wide drop-shadow-lg uppercase leading-tight py-1">
             {title}
           </h3>
-          <p className="text-xs text-gray-400 line-clamp-3 max-w-[90%] font-light leading-relaxed">
+          <p className="text-xs text-gray-400 line-clamp-4 max-w-[90%] font-light leading-relaxed">
             {description}
           </p>
 
@@ -228,7 +228,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({ title, rules, user, onAddRu
         <div className="bg-[#121214]/60 backdrop-blur-md border border-white/5 rounded-2xl p-8 min-h-[600px] relative overflow-hidden">
             {/* Watermark */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-0 opacity-[0.05] pointer-events-none z-0">
-                <img src={icon || LOGO_URL} className="w-[500px] h-[500px] object-contain grayscale" alt="watermark" />
+                <img src={icon || LOGO_URL} className="w-[500px] h-[500px] object-contain grayscale rounded-full" alt="watermark" />
             </div>
 
             <div className="flex justify-between items-center mb-8 relative z-10">
@@ -296,10 +296,7 @@ const RulesSection: React.FC<RulesSectionProps> = ({ title, rules, user, onAddRu
                 {filteredRules.length > 0 ? (
                 filteredRules.map((rule, idx) => (
                     <div id={`rule-${rule.id}`} key={rule.id} className="group relative">
-                        {/* Connector Line */}
-                        {idx !== filteredRules.length - 1 && (
-                            <div className="absolute left-6 top-16 bottom-[-24px] w-px bg-white/5 group-hover:bg-white/10 transition-colors" />
-                        )}
+                        {/* Connector Line Removed Here */}
                         
                         <div className="bg-gradient-to-br from-[#1a1a1c] to-transparent hover:from-white/[0.06] border border-white/5 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-accent/20">
                             <div className="p-6">
@@ -627,6 +624,7 @@ const App: React.FC = () => {
                   gradientTo={faction.gradientTo}
                   onClick={() => handleFactionSelect(faction)} 
                   isIcon={true}
+                  variant="round"
                 />
               ))}
             </div>
