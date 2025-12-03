@@ -363,45 +363,131 @@ const App: React.FC = () => {
   const [factions, setFactions] = useState<Faction[]>([]);
   const [user, setUser] = useState<User | null>(null);
   
+  // Loading State
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  
   // Selection State
   const [activeFaction, setActiveFaction] = useState<Faction | null>(null);
   const [activeGeneric, setActiveGeneric] = useState<GenericCategory | null>(null);
 
+  // --- IMAGE PRELOADER ---
+  const preloadImages = async (imageUrls: string[]) => {
+    if (imageUrls.length === 0) {
+        setLoadingProgress(100);
+        return;
+    }
+
+    setLoadingProgress(0);
+    let loadedCount = 0;
+
+    const promises = imageUrls.map(src => {
+        return new Promise<void>((resolve) => {
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                loadedCount++;
+                setLoadingProgress(Math.round((loadedCount / imageUrls.length) * 100));
+                resolve();
+            };
+            img.onerror = () => {
+                loadedCount++; // Resolve anyway to avoid stuck loader
+                setLoadingProgress(Math.round((loadedCount / imageUrls.length) * 100));
+                resolve();
+            };
+        });
+    });
+
+    await Promise.all(promises);
+    // Ensure 100% visualization
+    setLoadingProgress(100);
+    // Small buffer for smooth transition
+    await new Promise(r => setTimeout(r, 500));
+  };
+
   useEffect(() => {
-    // Preload factions logic
-    const fetchFactions = async () => {
-      const data = await factionService.getFactions();
-      setFactions(data);
+    // Initial Load - Preload Landing Images
+    const initLoad = async () => {
+        setIsLoading(true);
+        const landingImages = [
+            INITIAL_GENERIC_CATEGORIES[0].icon,
+            INITIAL_GENERIC_CATEGORIES[1].icon,
+            "https://i.ibb.co/5hW4nh3B/Dise-o-sin-t-tulo-1.png", // Faction card icon
+            LOGO_URL
+        ];
+        
+        // Parallel: Fetch Data & Preload Images
+        await Promise.all([
+            factionService.getFactions().then(data => setFactions(data)),
+            preloadImages(landingImages)
+        ]);
+
+        setIsLoading(false);
     };
-    fetchFactions();
+
+    initLoad();
   }, []);
 
-  // Navigation Handlers
-  const goHome = () => {
-    setView('landing');
+  // Navigation Handlers with Preloading
+
+  const goHome = async () => {
+    setIsLoading(true);
+    // Optional: Preload landing again (usually cached, but ensures smooth transition)
+    const landingImages = [
+        INITIAL_GENERIC_CATEGORIES[0].icon,
+        INITIAL_GENERIC_CATEGORIES[1].icon,
+        "https://i.ibb.co/5hW4nh3B/Dise-o-sin-t-tulo-1.png"
+    ];
+    await preloadImages(landingImages);
+    
     setActiveFaction(null);
     setActiveGeneric(null);
+    setView('landing');
     window.scrollTo(0,0);
+    setIsLoading(false);
   };
 
   const handleGenericSelect = async (slug: string) => {
+    setIsLoading(true);
     const data = await factionService.getGenericCategory(slug);
+    
     if(data) {
+        // Preload Banner & Icon
+        await preloadImages([data.bannerUrl, data.icon]);
+        
         setActiveGeneric(data);
         setView('generic_detail');
         window.scrollTo(0,0);
     }
+    setIsLoading(false);
   };
 
-  const goToFactionsList = () => {
+  const goToFactionsList = async () => {
+    setIsLoading(true);
+    // Preload ALL faction icons
+    const iconUrls = factions.map(f => f.icon);
+    await preloadImages(iconUrls);
+
     setView('factions_list');
     window.scrollTo(0,0);
+    setIsLoading(false);
   };
 
-  const handleFactionSelect = (faction: Faction) => {
+  const handleFactionSelect = async (faction: Faction) => {
+    setIsLoading(true);
+    // Preload Banner, Icon & Member Avatars
+    const imagesToLoad = [
+        faction.bannerUrl || '',
+        faction.icon,
+        ...faction.members.map(m => m.avatar)
+    ].filter(Boolean);
+
+    await preloadImages(imagesToLoad);
+
     setActiveFaction(faction);
     setView('faction_detail');
     window.scrollTo(0,0);
+    setIsLoading(false);
   };
 
   // Rule Handlers
@@ -411,12 +497,10 @@ const App: React.FC = () => {
         const slug = type === 'faction' ? activeFaction?.slug : activeGeneric?.slug;
         if(!slug) return;
 
-        // API call returns the new rule object with proper ID
         const newRule = await factionService.addRule(slug, type, {
             title, content, author: user.username
         });
 
-        // Update LOCAL state carefully to avoid duplication
         if (type === 'faction' && activeFaction) {
             setActiveFaction(prev => {
                 if(!prev) return null;
@@ -443,7 +527,6 @@ const App: React.FC = () => {
             title, content, author: user.username
         });
 
-        // Update LOCAL state
         if (type === 'faction' && activeFaction) {
             setActiveFaction(prev => {
                 if(!prev) return null;
@@ -495,7 +578,6 @@ const App: React.FC = () => {
     const slug = type === 'faction' ? activeFaction?.slug : activeGeneric?.slug;
     if(!slug) return;
 
-    // Optimistic Update
     const swapRules = (rules: Rule[]) => {
         const idx = rules.findIndex(r => r.id === id);
         if (idx === -1) return rules;
@@ -514,10 +596,31 @@ const App: React.FC = () => {
         setActiveGeneric(prev => prev ? { ...prev, rules: swapRules(prev.rules) } : null);
     }
 
-    // API Call
     await factionService.moveRule(slug, type, id, direction);
   };
 
+  // --- LOADING SCREEN ---
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-[#050505] flex flex-col items-center justify-center z-50">
+        <div className="relative mb-8">
+            <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full animate-pulse" />
+            <img src={LOGO_URL} className="w-32 h-32 object-contain relative z-10 animate-bounce" alt="Loading" />
+        </div>
+        <h2 className="text-3xl font-display font-black italic text-white uppercase tracking-widest animate-pulse">
+            Complex Legacy
+        </h2>
+        {/* Real Progress Bar */}
+        <div className="mt-6 w-64 h-1 bg-white/10 rounded-full overflow-hidden relative">
+            <div 
+                className="h-full bg-accent transition-all duration-300 ease-out" 
+                style={{ width: `${loadingProgress}%` }} 
+            />
+        </div>
+        <p className="mt-2 text-xs text-gray-500 font-mono">{loadingProgress}%</p>
+      </div>
+    );
+  }
 
   return (
     <Layout 

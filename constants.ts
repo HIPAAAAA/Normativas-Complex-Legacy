@@ -32,8 +32,8 @@ export const INITIAL_FACTIONS: Faction[] = [
     color: '#3b82f6',
     gradientFrom: 'from-blue-900',
     gradientTo: 'to-blue-600',
-    discordUrl: 'https://discord.gg/complexlegacy-police',
-    applyUrl: 'https://forms.google.com/complex-police',
+    discordUrl: 'https://discord.gg/85U8HTGbJ4',
+    applyUrl: 'https://discord.gg/85U8HTGbJ4',
     bannerUrl: 'https://i.ibb.co/ynT9xphW/POLICE-POSUT.png',
     members: [
       {
@@ -186,8 +186,8 @@ export const INITIAL_FACTIONS: Faction[] = [
     color: '#ef4444',
     gradientFrom: 'from-red-900',
     gradientTo: 'to-orange-600',
-    discordUrl: 'https://discord.gg/complexlegacy-saes',
-    applyUrl: 'https://forms.google.com/complex-saes',
+    discordUrl: 'https://discord.gg/svbT2e3w9T',
+    applyUrl: 'https://discord.gg/svbT2e3w9T',
     bannerUrl: 'https://i.ibb.co/ZzwZkwZt/POSTULACIONEMS.png',
     members: [
       {
