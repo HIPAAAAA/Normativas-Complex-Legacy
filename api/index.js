@@ -1,6 +1,6 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
 
 const app = express();
 
@@ -34,7 +34,7 @@ const RuleSchema = new mongoose.Schema({
     lastUpdated: { type: Date, default: Date.now }
 });
 
-const RuleModel = mongoose.model('Rule', RuleSchema);
+const RuleModel = mongoose.models.Rule || mongoose.model('Rule', RuleSchema);
 
 // --- ROUTES ---
 
@@ -104,14 +104,7 @@ app.delete('/api/rules/:id', async (req, res) => {
     }
 });
 
-// 5. Move Rule (Reorder)
-// Simple implementation: Swap titles/content or use a dedicated 'order' field. 
-// For this MVP, we will rely on the frontend sending a full re-order or just handling it in memory mostly, 
-// but since the user asked for DB persistence, we'll implement a swap logic if IDs are provided.
-// A true drag-and-drop sort requires an 'order' index field. 
-// For now, to keep it simple without schema migration, we won't persist order changes to DB in this specific endpoint 
-// unless we add an 'order' field. 
-// However, the user asked for it to save. Let's add an endpoint to swap two IDs.
+// 5. Move Rule (Swap)
 app.post('/api/rules/swap', async (req, res) => {
     await connectToDatabase();
     try {
@@ -120,11 +113,6 @@ app.post('/api/rules/swap', async (req, res) => {
         const rule2 = await RuleModel.findById(id2);
 
         if(rule1 && rule2) {
-            // Swap contents to effectively swap positions if sorting by ID, 
-            // BUT sorting by ID is immutable. 
-            // Better approach: Add 'order' field. 
-            // Since we didn't add 'order' field initially, let's just swap content for now to simulate moving.
-            
             const tempTitle = rule1.title;
             const tempContent = rule1.content;
             
@@ -158,17 +146,19 @@ app.post('/api/seed', async (req, res) => {
     }
 });
 
-// Root route for testing
+// Root route
 app.get('/api', (req, res) => {
     res.send('Complex Legacy API is running');
 });
 
-// LOCAL DEV SERVER (Only runs if executed directly, not imported by Vercel)
-if (require.main === module) {
+// Local Development Server
+// In Vercel, this file is imported, so we don't listen.
+// Locally, we listen on PORT.
+if (!process.env.VERCEL) {
     const PORT = process.env.PORT || 3001;
     app.listen(PORT, () => {
         console.log(`Server running locally on port ${PORT}`);
     });
 }
 
-module.exports = app;
+export default app;
