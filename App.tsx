@@ -9,6 +9,9 @@ import AiAssistant from './components/AiAssistant';
 // --- TYPES FOR VIEW STATE ---
 type ViewState = 'landing' | 'factions_list' | 'faction_detail' | 'generic_detail';
 
+// Background URL used in Layout (mirrored here for preloading)
+const LAYOUT_BG_URL = 'https://images.unsplash.com/photo-1605218427306-635ba2439af2?q=80&w=2070&auto=format&fit=crop';
+
 // --- SHARED 3D CARD COMPONENT ---
 interface CardProps {
   title: string;
@@ -371,45 +374,63 @@ const App: React.FC = () => {
   const [activeFaction, setActiveFaction] = useState<Faction | null>(null);
   const [activeGeneric, setActiveGeneric] = useState<GenericCategory | null>(null);
 
-  // --- IMAGE PRELOADER ---
+  // --- ROBUST IMAGE PRELOADER ---
   const preloadImages = async (imageUrls: string[]) => {
-    if (imageUrls.length === 0) {
+    // 1. Deduplicate
+    const uniqueUrls = [...new Set(imageUrls)].filter(Boolean);
+    
+    if (uniqueUrls.length === 0) {
         setLoadingProgress(100);
+        await new Promise(r => setTimeout(r, 200)); 
         return;
     }
 
-    setLoadingProgress(0);
-    let loadedCount = 0;
+    setLoadingProgress(10); // Start visible
 
-    const promises = imageUrls.map(src => {
+    const promises = uniqueUrls.map(src => {
         return new Promise<void>((resolve) => {
             const img = new Image();
             img.src = src;
-            img.onload = () => {
-                loadedCount++;
-                setLoadingProgress(Math.round((loadedCount / imageUrls.length) * 100));
-                resolve();
-            };
-            img.onerror = () => {
-                loadedCount++; // Resolve anyway to avoid stuck loader
-                setLoadingProgress(Math.round((loadedCount / imageUrls.length) * 100));
-                resolve();
-            };
+
+            // Strategy: Use decode() if available to ensure layout is ready (no pop-in)
+            if (img.decode) {
+                img.decode().then(() => {
+                    resolve();
+                }).catch(() => {
+                    // Fallback to standard load if decode fails (or format not supported)
+                    img.onload = () => resolve();
+                    img.onerror = () => resolve(); 
+                });
+            } else {
+                // Legacy Strategy
+                if (img.complete) {
+                    resolve();
+                } else {
+                    img.onload = () => resolve();
+                    img.onerror = () => resolve();
+                }
+            }
+        }).then(() => {
+            // Update progress per image
+            setLoadingProgress(prev => {
+                const step = 90 / uniqueUrls.length;
+                return Math.min(prev + step, 100);
+            });
         });
     });
 
     await Promise.all(promises);
-    // Ensure 100% visualization
     setLoadingProgress(100);
-    // Small buffer for smooth transition
-    await new Promise(r => setTimeout(r, 500));
+    // Smooth fade out buffer
+    await new Promise(r => setTimeout(r, 400));
   };
 
   useEffect(() => {
-    // Initial Load - Preload Landing Images
+    // Initial Load - Preload Landing Images + Layout Background
     const initLoad = async () => {
         setIsLoading(true);
         const landingImages = [
+            LAYOUT_BG_URL, // Essential for Layout
             INITIAL_GENERIC_CATEGORIES[0].icon,
             INITIAL_GENERIC_CATEGORIES[1].icon,
             "https://i.ibb.co/5hW4nh3B/Dise-o-sin-t-tulo-1.png", // Faction card icon
@@ -428,15 +449,16 @@ const App: React.FC = () => {
     initLoad();
   }, []);
 
-  // Navigation Handlers with Preloading
+  // Navigation Handlers with Robust Preloading
 
   const goHome = async () => {
     setIsLoading(true);
-    // Optional: Preload landing again (usually cached, but ensures smooth transition)
+    // Preload again to check cache status and ensure smooth transition
     const landingImages = [
         INITIAL_GENERIC_CATEGORIES[0].icon,
         INITIAL_GENERIC_CATEGORIES[1].icon,
-        "https://i.ibb.co/5hW4nh3B/Dise-o-sin-t-tulo-1.png"
+        "https://i.ibb.co/5hW4nh3B/Dise-o-sin-t-tulo-1.png",
+        LAYOUT_BG_URL
     ];
     await preloadImages(landingImages);
     
@@ -480,7 +502,7 @@ const App: React.FC = () => {
         faction.bannerUrl || '',
         faction.icon,
         ...faction.members.map(m => m.avatar)
-    ].filter(Boolean);
+    ];
 
     await preloadImages(imagesToLoad);
 
@@ -602,7 +624,7 @@ const App: React.FC = () => {
   // --- LOADING SCREEN ---
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-[#050505] flex flex-col items-center justify-center z-50">
+      <div className="fixed inset-0 bg-[#050505] flex flex-col items-center justify-center z-50 transition-opacity duration-300">
         <div className="relative mb-8">
             <div className="absolute inset-0 bg-accent/20 blur-xl rounded-full animate-pulse" />
             <img src={LOGO_URL} className="w-32 h-32 object-contain relative z-10 animate-bounce" alt="Loading" />
@@ -613,11 +635,14 @@ const App: React.FC = () => {
         {/* Real Progress Bar */}
         <div className="mt-6 w-64 h-1 bg-white/10 rounded-full overflow-hidden relative">
             <div 
-                className="h-full bg-accent transition-all duration-300 ease-out" 
-                style={{ width: `${loadingProgress}%` }} 
+                className="h-full bg-accent shadow-[0_0_10px_#8C78FF] transition-all duration-300 ease-out" 
+                style={{ width: `${Math.max(loadingProgress, 5)}%` }} 
             />
         </div>
-        <p className="mt-2 text-xs text-gray-500 font-mono">{loadingProgress}%</p>
+        <div className="mt-2 flex justify-between w-64 text-[10px] text-gray-500 font-mono uppercase tracking-wider">
+             <span>Cargando recursos...</span>
+             <span>{Math.round(loadingProgress)}%</span>
+        </div>
       </div>
     );
   }
